@@ -300,6 +300,44 @@ struct RunContainerSheet: View {
                     Toggle("Usuń po zatrzymaniu (--rm)", isOn: $config.removeOnExit)
                     InfoTip(text: String(localized: "Kontener zniknie automatycznie po zatrzymaniu — przydatne do jednorazowych zadań. Logi i dane (poza wolumenami) przepadną."))
                 }
+
+                Divider().padding(.vertical, 2)
+
+                HStack(spacing: 4) {
+                    Toggle("Proces init (--init)", isOn: $config.useInit)
+                    InfoTip(text: String(localized: "Uruchamia lekki proces init wewnątrz kontenera, który przechwytuje sygnały i sprząta procesy-zombie."))
+                }
+                HStack(spacing: 4) {
+                    Toggle("Przekaż agenta SSH (--ssh)", isOn: $config.ssh)
+                    InfoTip(text: String(localized: "Przekierowuje gniazdo agenta SSH hosta do kontenera — przydatne np. do git clone po SSH bez kopiowania kluczy."))
+                }
+                HStack(spacing: 4) {
+                    Toggle("Wirtualizacja zagnieżdżona (--virtualization)", isOn: $config.virtualization)
+                    InfoTip(text: String(localized: "Udostępnia kontenerowi możliwości wirtualizacji (KVM). Wymaga Apple M3 lub nowszego."))
+                }
+                TextField("Rozmiar /dev/shm (np. 64M, 1G)", text: $config.shmSize)
+                TextField("Obraz init (--init-image, opcjonalnie)", text: $config.initImage)
+
+                simpleListEditor(
+                    title: String(localized: "Dodaj uprawnienia (--cap-add)"),
+                    prompt: String(localized: "np. CAP_NET_RAW lub ALL"),
+                    items: $config.capAdd
+                )
+                simpleListEditor(
+                    title: String(localized: "Usuń uprawnienia (--cap-drop)"),
+                    prompt: String(localized: "np. CAP_NET_RAW lub ALL"),
+                    items: $config.capDrop
+                )
+                simpleListEditor(
+                    title: String(localized: "Limity zasobów (--ulimit)"),
+                    prompt: String(localized: "np. nofile=1024:2048"),
+                    items: $config.ulimits
+                )
+                simpleListEditor(
+                    title: String(localized: "Montowania tmpfs (--tmpfs)"),
+                    prompt: String(localized: "np. /tmp"),
+                    items: $config.tmpfs
+                )
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "gearshape.fill")
@@ -408,6 +446,39 @@ struct RunContainerSheet: View {
                 }
             }
         }
+    }
+
+    /// Inline editor for a list of single-value flags (--cap-add, --ulimit,
+    /// --tmpfs, …). Lives inside the Advanced disclosure, so it is NOT wrapped
+    /// in its own Form Section.
+    @ViewBuilder
+    private func simpleListEditor(
+        title: String,
+        prompt: String,
+        items: Binding<[RunConfiguration.SimpleValue]>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(items.wrappedValue) { item in
+                HStack {
+                    TextField(prompt, text: Self.safeBinding(for: item, in: items).value, prompt: Text(prompt))
+                        .labelsHidden()
+                    Button(role: .destructive) {
+                        items.wrappedValue.removeAll { $0.id == item.id }
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            Button("Dodaj", systemImage: "plus") {
+                items.wrappedValue.append(.init())
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.top, 2)
     }
 
     /// A binding that looks the element up by ID on every access; reads fall

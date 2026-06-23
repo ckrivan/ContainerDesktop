@@ -272,4 +272,48 @@ final class CommandBuilderTests: XCTestCase {
         XCTAssertEqual(args.last, "alpine:latest")
     }
 
+    // MARK: - Advanced run flags (container 1.0)
+
+    func testAdvancedFlagsProduceExpectedArguments() {
+        var config = RunConfiguration()
+        config.image = "alpine:latest"
+        config.useInit = true
+        config.ssh = true
+        config.virtualization = true
+        config.shmSize = "256M"
+        config.initImage = "custom-init:1"
+        config.capAdd = [.init(value: "CAP_NET_RAW"), .init(value: "ALL")]
+        config.capDrop = [.init(value: "CAP_MKNOD")]
+        config.ulimits = [.init(value: "nofile=1024:2048")]
+        config.tmpfs = [.init(value: "/tmp")]
+
+        let args = RunCommandBuilder.arguments(for: config)
+
+        XCTAssertTrue(args.contains("--init"))
+        XCTAssertTrue(args.contains("--ssh"))
+        XCTAssertTrue(args.contains("--virtualization"))
+        assertPair(args, "--shm-size", "256M")
+        assertPair(args, "--init-image", "custom-init:1")
+        // Repeatable flags: every non-empty value emits its own flag/value pair.
+        XCTAssertEqual(args.filter { $0 == "--cap-add" }.count, 2)
+        XCTAssertTrue(zip(args, args.dropFirst()).contains { $0 == "--cap-add" && $1 == "CAP_NET_RAW" })
+        XCTAssertTrue(zip(args, args.dropFirst()).contains { $0 == "--cap-add" && $1 == "ALL" })
+        assertPair(args, "--cap-drop", "CAP_MKNOD")
+        assertPair(args, "--ulimit", "nofile=1024:2048")
+        assertPair(args, "--tmpfs", "/tmp")
+        // All advanced flags precede the image positional.
+        XCTAssertEqual(args.last, "alpine:latest")
+    }
+
+    func testAdvancedFlagsOmittedWhenUnset() {
+        var config = RunConfiguration()
+        config.image = "alpine:latest"
+        config.capAdd = [.init(value: "")]  // empty value must be skipped
+
+        let args = RunCommandBuilder.arguments(for: config)
+        for flag in ["--init", "--ssh", "--virtualization", "--shm-size",
+                     "--init-image", "--cap-add", "--cap-drop", "--ulimit", "--tmpfs"] {
+            XCTAssertFalse(args.contains(flag), "\(flag) nie powinno być obecne gdy nieustawione")
+        }
+    }
 }

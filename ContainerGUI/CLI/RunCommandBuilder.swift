@@ -14,16 +14,32 @@ struct RunConfiguration {
     var arch = ""
     var rosetta = false
     var removeOnExit = false
+    // Advanced run flags (container 1.0).
+    var useInit = false          // --init
+    var ssh = false              // --ssh
+    var virtualization = false   // --virtualization
+    var shmSize = ""             // --shm-size
+    var initImage = ""           // --init-image
     var ports: [PortMapping] = []
     var environment: [KeyValue] = []
     var volumes: [VolumeMount] = []
     var labels: [KeyValue] = []
+    var capAdd: [SimpleValue] = []   // --cap-add
+    var capDrop: [SimpleValue] = []  // --cap-drop
+    var ulimits: [SimpleValue] = []  // --ulimit
+    var tmpfs: [SimpleValue] = []    // --tmpfs
 
     struct PortMapping: Identifiable, Hashable {
         let id = UUID()
         var host = ""
         var container = ""
         var proto = "tcp"
+    }
+
+    /// A single repeatable string value (e.g. one --cap-add / --ulimit / --tmpfs).
+    struct SimpleValue: Identifiable, Hashable {
+        let id = UUID()
+        var value = ""
     }
 
     struct KeyValue: Identifiable, Hashable {
@@ -51,6 +67,9 @@ enum RunCommandBuilder {
 
         if config.removeOnExit { args.append("--rm") }
         if config.rosetta { args.append("--rosetta") }
+        if config.useInit { args.append("--init") }
+        if config.ssh { args.append("--ssh") }
+        if config.virtualization { args.append("--virtualization") }
         if !config.arch.isEmpty { args.append(contentsOf: ["--arch", config.arch]) }
 
         appendOption(&args, "--name", config.name)
@@ -59,6 +78,21 @@ enum RunCommandBuilder {
         appendOption(&args, "--network", config.network)
         appendOption(&args, "--workdir", config.workdir)
         appendOption(&args, "--user", config.user)
+        appendOption(&args, "--shm-size", config.shmSize)
+        appendOption(&args, "--init-image", config.initImage)
+
+        for cap in config.capAdd where !cap.value.isEmpty {
+            args.append(contentsOf: ["--cap-add", cap.value])
+        }
+        for cap in config.capDrop where !cap.value.isEmpty {
+            args.append(contentsOf: ["--cap-drop", cap.value])
+        }
+        for limit in config.ulimits where !limit.value.isEmpty {
+            args.append(contentsOf: ["--ulimit", limit.value])
+        }
+        for mount in config.tmpfs where !mount.value.isEmpty {
+            args.append(contentsOf: ["--tmpfs", mount.value])
+        }
 
         // The CLI's --entrypoint takes a SINGLE executable. A multi-token
         // entrypoint (compose style: ["dotnet", "dbmgr.dll"]) is split: first
