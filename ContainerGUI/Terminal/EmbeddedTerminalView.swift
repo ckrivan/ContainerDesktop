@@ -50,3 +50,21 @@ struct ContainerTerminalView: View {
         }
     }
 }
+
+/// Convenience view that opens an interactive shell inside a container machine.
+/// `container machine run` with no command starts an interactive session and
+/// boots the machine first if it is stopped (WWDC 2026, container 1.0).
+struct MachineTerminalView: View {
+    let machineName: String
+
+    var body: some View {
+        if let binary = BinaryResolver.resolve() {
+            EmbeddedTerminalView(
+                executable: binary,
+                arguments: ["machine", "run", "--name", machineName]
+            )
+        } else {
+            EmptyStateView(symbol: "terminal", title: String(localized: "Nie znaleziono narzędzia container"))
+        }
+    }
+}
