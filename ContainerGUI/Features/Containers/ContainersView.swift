@@ -409,31 +409,35 @@ struct ContainersView: View {
             .disabled(isPending)
     }
 
-    /// Ports with a tiny open-in-browser arrow for reachable (running, tcp,
-    /// host-published) mappings.
+    /// Ports for a container. For reachable mappings (running, tcp,
+    /// host-published) the WHOLE chip — number plus arrow — is a clickable link
+    /// that opens http://localhost:<hostPort> in the browser; otherwise it's
+    /// plain text.
     @ViewBuilder
     private func portsCell(for container: ContainerInfo) -> some View {
         if let ports = container.configuration.publishedPorts, !ports.isEmpty {
             HStack(spacing: 8) {
                 ForEach(ports) { port in
-                    HStack(spacing: 2) {
-                        Text(port.display)
-                            .foregroundStyle(.secondary)
-                        if container.isRunning,
-                           let hostPort = port.hostPort,
-                           (port.proto ?? "tcp") == "tcp" {
-                            Button {
-                                if let url = URL(string: "http://localhost:\(hostPort)") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            } label: {
+                    if container.isRunning,
+                       let hostPort = port.hostPort,
+                       (port.proto ?? "tcp") == "tcp" {
+                        Button {
+                            if let url = URL(string: "http://localhost:\(hostPort)") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 2) {
+                                Text(port.display)
                                 Image(systemName: "arrow.up.forward")
                                     .font(.system(size: 9, weight: .bold))
                             }
-                            .buttonStyle(.borderless)
-                            .controlSize(.mini)
-                            .help(String(format: String(localized: "Otwórz http://localhost:%lld w przeglądarce"), hostPort))
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.link)
+                        .help(String(format: String(localized: "Otwórz http://localhost:%lld w przeglądarce"), hostPort))
+                    } else {
+                        Text(port.display)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
